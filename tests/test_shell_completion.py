@@ -150,6 +150,19 @@ def test_type_choice():
     assert _get_words(cli, ["-c"], "a2") == ["a2"]
 
 
+def test_option_choice_equals():
+    cli = Command(
+        "cli",
+        params=[Option(["--color"], type=Choice(["auto", "always", "never"]))],
+    )
+    # Bash splits on "=" (COMP_WORDBREAKS), passing "=" as its own arg.
+    assert _get_words(cli, ["--color", "="], "a") == ["auto", "always"]
+    # The "=" may also be the incomplete value itself.
+    assert _get_words(cli, ["--color"], "=") == ["auto", "always", "never"]
+    # Or the option and value may arrive joined.
+    assert _get_words(cli, [], "--color=a") == ["auto", "always"]
+
+
 def test_choice_special_characters():
     cli = Command("cli", params=[Option(["-c"], type=Choice(["!1", "!2", "+3"]))])
     assert _get_words(cli, ["-c"], "") == ["!1", "!2", "+3"]

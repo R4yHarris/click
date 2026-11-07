@@ -770,6 +770,12 @@ def _resolve_incomplete(
         name, _, incomplete = incomplete.partition("=")
         args.append(name)
 
+    # Bash splits on "=" (COMP_WORDBREAKS), so the "=" can arrive as its
+    # own complete arg before the incomplete value. Drop it so the option
+    # name before it is seen as the last complete arg.
+    if args and args[-1] == "=":
+        args.pop()
+
     # The "--" marker tells Click to stop treating values as options
     # even if they start with the option character. If it hasn't been
     # given and the incomplete arg looks like an option, the current
