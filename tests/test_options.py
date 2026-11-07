@@ -1813,6 +1813,37 @@ def test_multiple_option_with_optional_value(runner):
     }
 
 
+def test_multiple_option_metavar_ellipsis(runner):
+    """An option that may be given more than once shows a repeated metavar."""
+
+    @click.command()
+    @click.option("--foo", multiple=True, help="A list of foo strings.")
+    def cmd(foo):
+        click.echo(foo)
+
+    ctx = click.Context(cmd)
+    opt = next(param for param in cmd.params if param.name == "foo")
+    assert opt.make_metavar(ctx) == "TEXT..."
+
+    result = runner.invoke(cmd, ["--help"])
+    assert not result.exception
+    assert re.search(r"--foo\s+TEXT\.\.\.", result.output) is not None
+
+    custom = click.Option(["--foo"], multiple=True, metavar="CUSTOM")
+    custom_ctx = click.Context(click.Command("custom", params=[custom]))
+    assert custom.make_metavar(custom_ctx) == "CUSTOM"
+
+    nargs_multiple = click.Option(["--foo"], nargs=2, multiple=True)
+    nargs_multiple_ctx = click.Context(
+        click.Command("nargs", params=[nargs_multiple])
+    )
+    assert nargs_multiple.make_metavar(nargs_multiple_ctx) == "TEXT..."
+
+    single = click.Option(["--foo"])
+    single_ctx = click.Context(click.Command("single", params=[single]))
+    assert single.make_metavar(single_ctx) == "TEXT"
+
+
 def test_type_from_flag_value():
     param = click.Option(["-a", "x"], default=True, flag_value=4)
     assert param.type is click.INT
