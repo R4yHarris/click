@@ -503,6 +503,12 @@ def should_strip_ansi(
     stream: t.IO[t.Any] | None = None, color: bool | None = None
 ) -> bool:
     if color is None:
+        if os.environ.get("NO_COLOR"):
+            return True
+
+        if os.environ.get("FORCE_COLOR") not in (None, "", "0"):
+            return False
+
         if stream is None:
             stream = sys.stdin
         elif hasattr(stream, "color"):

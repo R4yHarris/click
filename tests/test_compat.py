@@ -121,6 +121,52 @@ def test_should_strip_ansi(
     assert click._compat.should_strip_ansi(stream=stream, color=color) == expected
 
 
+def test_should_strip_ansi_env_vars(monkeypatch) -> None:
+    import io
+
+    from click._compat import should_strip_ansi
+
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    monkeypatch.delenv("FORCE_COLOR", raising=False)
+
+    # A non-TTY stream would normally be stripped.
+    stream = io.StringIO()
+    assert should_strip_ansi(stream=stream) is True
+
+    # NO_COLOR forces stripping even for a TTY stream.
+    monkeypatch.setenv("NO_COLOR", "1")
+    assert should_strip_ansi(stream=sys.stdin) is True
+    assert should_strip_ansi(stream=stream) is True
+
+    # NO_COLOR takes precedence over FORCE_COLOR.
+    monkeypatch.setenv("FORCE_COLOR", "1")
+    assert should_strip_ansi(stream=sys.stdin) is True
+    assert should_strip_ansi(stream=stream) is True
+
+    # FORCE_COLOR keeps color on a non-TTY stream when NO_COLOR is unset.
+    monkeypatch.delenv("NO_COLOR")
+    assert should_strip_ansi(stream=stream) is False
+
+    # An empty NO_COLOR value does not force stripping.
+    monkeypatch.setenv("NO_COLOR", "")
+    assert should_strip_ansi(stream=stream) is False
+
+    # FORCE_COLOR="0" or empty does not override the stream fallback.
+    monkeypatch.delenv("NO_COLOR")
+    monkeypatch.setenv("FORCE_COLOR", "0")
+    assert should_strip_ansi(stream=stream) is True
+    monkeypatch.setenv("FORCE_COLOR", "")
+    assert should_strip_ansi(stream=stream) is True
+
+    # Explicit color overrides both environment variables.
+    monkeypatch.setenv("NO_COLOR", "1")
+    monkeypatch.setenv("FORCE_COLOR", "1")
+    assert should_strip_ansi(stream=stream, color=True) is False
+    assert should_strip_ansi(stream=stream, color=False) is True
+    assert should_strip_ansi(stream=sys.stdin, color=True) is False
+    assert should_strip_ansi(stream=sys.stdin, color=False) is True
+
+
 @pytest.mark.parametrize("seq", CLICK_EMITTED + CSI_FOREIGN)
 def test_strip_ansi_removes_full_sequence(seq):
     """Every complete CSI sequence is stripped, alone or wrapped in text."""
