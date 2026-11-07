@@ -627,3 +627,62 @@ def test_command_write_usage_no_args(runner, command_kwargs, expected_usage_line
     cli = click.Command("cli", **command_kwargs)
     result = runner.invoke(cli, ["--help"])
     assert result.output.splitlines()[0] == expected_usage_line
+
+
+def test_wrap_text_break_on_hyphens_keyword():
+    """``wrap_text`` accepts a ``break_on_hyphens`` keyword and forwards it to
+    ``TextWrapper``.  ``False`` never leaves a hyphen at the end of a line,
+    and the default preserves the historical hyphen-breaking behavior.
+    """
+    # A token that fits within the width but cannot share the line with the
+    # indent must be split; ``break_on_hyphens`` governs whether that split
+    # lands on a hyphen.
+    text = "--enable-verbose-logging"
+    indent = "Usage: "
+    width = 30
+
+    broken = click.formatting.wrap_text(
+        text, width=width, initial_indent=indent, break_on_hyphens=True
+    )
+    unbroken = click.formatting.wrap_text(
+        text, width=width, initial_indent=indent, break_on_hyphens=False
+    )
+
+    # Hyphen breaking is what puts a trailing ``-`` on a wrapped line.
+    assert any(line.endswith("-") for line in broken.splitlines()), broken
+    assert not any(line.endswith("-") for line in unbroken.splitlines()), unbroken
+    # Disabling hyphen breaking keeps the token intact across the wrap.
+    assert text in "".join(unbroken.split())
+
+    # The default keeps the historical hyphen-breaking behavior.
+    default = click.formatting.wrap_text(text, width=width, initial_indent=indent)
+    assert default == broken
+
+
+def test_write_usage_does_not_break_on_hyphens():
+    """``HelpFormatter.write_usage`` must not split option names at a hyphen."""
+    options = [
+        "--enable-verbose-logging",
+        "--output-file-path",
+        "--max-retry-count",
+        "--disable-cache-mode",
+        "--config-file-location",
+    ]
+    f = click.HelpFormatter(width=65)
+    f.write_usage("program", " ".join(options))
+    rendered = f.getvalue()
+
+    lines = rendered.splitlines()
+    assert lines[0].startswith("Usage: program ")
+
+    for option in options:
+        assert option in rendered
+        assert option in " ".join(line.strip() for line in lines)
+
+    # No line may end with a hyphen, which is how a split at a hyphen shows up.
+    for line in lines:
+        assert not line.rstrip().endswith("-"), rendered
+
+    joined = " ".join(line.strip() for line in lines)
+    for option in options:
+        assert option in joined
